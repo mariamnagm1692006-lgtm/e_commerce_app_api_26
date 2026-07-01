@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:ecommerce_app_api_26/features/home/presentation/widgets/product_card.dart';
 
@@ -16,10 +17,40 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     getProducts();
+    getFavorites();
   }
 
   void getProducts() {
     productsReference = FirebaseFirestore.instance.collection("products");
+  }
+
+  ////////////
+  List<dynamic> favorites = [];
+  bool loading = true;
+
+  void getFavorites() async {
+    String userId = await FirebaseAuth.instance.currentUser!.uid;
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .get()
+        .then((snapshot) {
+          if (snapshot.exists && snapshot.data() != null) {
+            setState(() {
+              favorites = snapshot.data()?['favorites'] ?? [];
+              loading = false;
+            });
+          } else {
+            setState(() {
+              loading = false;
+            });
+          }
+        })
+        .catchError((error) {
+          setState(() {
+            loading = false;
+          });
+        });
   }
 
   @override
@@ -71,12 +102,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   ElevatedButton(
                     onPressed: () async {
-                          await productsReference.add({
-                            'name': _nameController.text,
-                            'description': _descriptionController.text,
-                            'price': double.parse(_priceController.text),
-                            'image_url': _imageUrlController.text,
-                          });
+                      await productsReference.add({
+                        'name': _nameController.text,
+                        'description': _descriptionController.text,
+                        'price': double.parse(_priceController.text),
+                        'image_url': _imageUrlController.text,
+                      });
                     },
                     child: Text("Add Product"),
                   ),
@@ -158,7 +189,8 @@ class _HomeScreenState extends State<HomeScreen> {
               child: FutureBuilder(
                 future: productsReference.get(),
                 builder: (context, asyncSnapshot) {
-                  if (!asyncSnapshot.hasData) {
+                  //////////
+                  if (!asyncSnapshot.hasData || loading) {
                     return CircularProgressIndicator();
                   }
                   return GridView.builder(
@@ -175,10 +207,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     itemBuilder: (context, index) {
                       final product = asyncSnapshot.data!.docs[index].data();
                       return ProductCard(
+                        id: asyncSnapshot.data!.docs[index].id,
                         title: product['name'],
                         price: product['price'],
                         description: product['description'],
                         image: product['image_url'],
+                        isFavorite: favorites.contains(
+                          asyncSnapshot.data!.docs[index].id,
+                        ),
                       );
                     },
                   );

@@ -1,5 +1,4 @@
-import 'dart:developer';
-
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class AuthApi {
@@ -7,6 +6,7 @@ class AuthApi {
     try {
       UserCredential userCredential = await FirebaseAuth.instance
           .signInWithEmailAndPassword(email: email, password: password);
+
       if (userCredential.user != null && !userCredential.user!.emailVerified) {
         await FirebaseAuth.instance.signOut();
         throw Exception('Please verify your email');
@@ -28,6 +28,15 @@ class AuthApi {
     try {
       UserCredential userCredential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(email: email, password: password);
+      ////////////////////
+      if (userCredential == null || userCredential.user == null) {
+        print("Sign up went wrong");
+      }
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(userCredential.user!.uid)
+          .set({'email': email,'favorites': [],'cart': [],});
+
       if (userCredential.user != null) {
         await userCredential.user!.sendEmailVerification();
       }
